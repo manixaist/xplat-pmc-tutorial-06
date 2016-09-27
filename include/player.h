@@ -16,6 +16,13 @@ namespace PacManClone
         bool Reset(Maze *pMaze);
         void Update(Maze* pMaze, Direction inputDirection);
 
+        Direction Facing()
+        {
+            return static_cast<Direction>(CurrentAnimation());
+        }
+
+        void GetTilePlayerFacingWithOriginalBug(Maze* pMaze, Uint16 cSpaces, Uint16 &row, Uint16 &col);
+
     private:
         // Internal state
         enum class Mode

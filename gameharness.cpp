@@ -2,6 +2,33 @@
 
 using namespace XplatGameTutorial::PacManClone;
 
+// TEMP compile time flags for ghost enabling
+#define GHOST_BLINKY
+#define GHOST_PINKY
+#define GHOST_INKY
+#define GHOST_CLYDE
+
+// requires Blinky so make sure we enabled it
+// will crash otherwise
+#ifdef GHOST_INKY
+#ifndef GHOST_BLINKY
+#define GHOST_BLINKY
+#endif
+#endif
+
+// Duplicated code based on class type - perfect for a template function
+// This creates an object if it does not already exist, and in all cases
+// will Reset() the object
+template <class T> void InitGameSprite(T** p, TextureWrapper* pTexture, Maze* pMaze)
+{
+    if (*p == nullptr)
+    {
+        *p = new T(pTexture);
+        (*p)->Initialize();
+    }
+    (*p)->Reset(pMaze);
+}
+
 // Start up SDL and load our textures - the stuff we'll need for the entire process lifetime
 SDL_bool GameHarness::Initialize()
 {
@@ -13,8 +40,9 @@ SDL_bool GameHarness::Initialize()
         SDL_Color colorKey = Constants::SDLColorMagenta;
         _pTilesTexture = new TextureWrapper(Constants::TilesImage, SDL_strlen(Constants::TilesImage), _pSDLRenderer, nullptr);
         _pSpriteTexture = new TextureWrapper(Constants::SpritesImage, SDL_strlen(Constants::SpritesImage), _pSDLRenderer, &colorKey);
+        _pTitleTexture = new TextureWrapper(Constants::TitleImage, SDL_strlen(Constants::TitleImage), _pSDLRenderer, nullptr);
 
-        if (_pTilesTexture->IsNull() || _pSpriteTexture->IsNull())
+        if (_pTilesTexture->IsNull() || _pSpriteTexture->IsNull() || _pTitleTexture->IsNull())
         {
             printf("Failed to load one or more textures\n");
         }
@@ -51,10 +79,17 @@ void GameHarness::Run()
             switch (_state)
             {
             case GameState::Title:
-                // Skipping this for now
-                _state = GameState::LoadingLevel;
+                Direction inputDirection;
+                if (ProcessInput(&inputDirection))
+                {
+                    _state = GameState::Exiting;
+                }
+                else if (inputDirection != Direction::None)
+                {
+                    _state = GameState::WaitingToStartLevel;
+                }
                 break;
-            case GameState::LoadingLevel:
+            case GameState::LoadingResources:
                 // Loads the current maze and the sprites if needed
                 _state = OnLoading();
                 break;
@@ -68,6 +103,7 @@ void GameHarness::Run()
                 break;
             case GameState::PlayerDying:
                 // Death animation, skip for now since no ghosts
+                _state = GameState::WaitingToStartLevel;
                 break;
             case GameState::LevelComplete:
                 // Flashing level animation
@@ -102,11 +138,18 @@ void GameHarness::Run()
 void GameHarness::Cleanup()
 {
     SDL_assert(_fInitialized);
+    SafeDelete<TextureWrapper>(_pTitleTexture);
     SafeDelete<TextureWrapper>(_pTilesTexture);
     SafeDelete<TextureWrapper>(_pSpriteTexture);
     SafeDelete<Maze>(_pMaze);
     SafeDelete<Player>(_pPlayer);
     SafeDelete<Blinky>(_pBlinky);
+    SafeDelete<Pinky>(_pPinky);
+    SafeDelete<Inky>(_pInky);
+    SafeDelete<Clyde>(_pClyde);
+
+    // The _pGhosts array just holds references to deleted
+    // objects, no need to free them
 
     SDL_DestroyRenderer(_pSDLRenderer);
     _pSDLRenderer = nullptr;
@@ -121,24 +164,37 @@ void GameHarness::Cleanup()
 
 void GameHarness::InitializeSprites()
 {
+    // In all cases we create a player
     SDL_assert(_fInitialized);
-    
-    if (_pPlayer == nullptr)
-    {
-        _pPlayer = new Player(_pSpriteTexture);
-        _pPlayer->Initialize();
-    }
-    _pPlayer->Reset(_pMaze);
+    InitGameSprite(&_pPlayer, _pSpriteTexture, _pMaze);
 
-    if (_pBlinky == nullptr)
-    {
-        _pBlinky = new Blinky(_pSpriteTexture);
-        _pBlinky->Initialize();
-    }
-    _pBlinky->Reset(_pMaze);
+    // The ghosts are controlled by these flags
+#ifdef GHOST_BLINKY
+    InitGameSprite(&_pBlinky, _pSpriteTexture, _pMaze);
+    _pGhosts[0] = _pBlinky;
+#endif
+
+#ifdef GHOST_PINKY
+    InitGameSprite(&_pPinky, _pSpriteTexture, _pMaze);
+    _pGhosts[1] = _pPinky;
+#endif
+
+    // Will also enable blinky as he is needed for Inky's
+    // targeting scheme
+#ifdef GHOST_INKY
+    InitGameSprite(&_pInky, _pSpriteTexture, _pMaze);
+    _pInky->SetBlinkyReference(_pBlinky);
+    _pGhosts[2] = _pInky;
+#endif
+
+#ifdef GHOST_CLYDE
+    InitGameSprite(&_pClyde, _pSpriteTexture, _pMaze);
+    _pGhosts[3] = _pClyde;
+#endif
 }
 
 // Record key presses we care about
+// returns true if we need to exit
 bool GameHarness::ProcessInput(Direction *pInputDirection)
 {
     *pInputDirection = Direction::None;
@@ -171,6 +227,8 @@ bool GameHarness::ProcessInput(Direction *pInputDirection)
     return fResult;
 }
 
+// Detect if the player has entered a pellet tile and remove it, incrementing our counter
+// If the pellet is BIG, then trigger the ghost behavior
 Uint16 GameHarness::HandlePelletCollision()
 {
     Uint16 ret = 0;
@@ -184,58 +242,148 @@ Uint16 GameHarness::HandlePelletCollision()
         _pMaze->EatPellet(row, col);
         ret++;
     }
+    else if (_pMaze->IsTilePowerPellet(row, col))
+    {
+        _pMaze->EatPellet(row, col);
+        ret++;
+
+        for (size_t i = 0; i < SDL_arraysize(_pGhosts); i++)
+        {
+            if (_pGhosts[i] != nullptr)
+            {
+                _pGhosts[i]->OnPowerPelletEaten(_pMaze);
+            }
+        }
+    }
     return ret;
 }
 
+// Detect if the player has collided with a ghost (i.e. they are in the 
+// same cell during the same frame) and handle it based on state (whether
+// the player has an active power pellet)
+GameHarness::GameState GameHarness::HandleGhostCollision()
+{
+    GameState result = GameState::Running;
+
+    Uint16 ret = 0;
+    SDL_Point playerPoint = { static_cast<int>(_pPlayer->X()), static_cast<int>(_pPlayer->Y()) };
+    Uint16 row = 0;
+    Uint16 col = 0;
+    _pMaze->GetTileRowCol(playerPoint, row, col);
+    for (size_t i = 0; i < SDL_arraysize(_pGhosts); i++)
+    {
+        if (_pGhosts[i] != nullptr)
+        {
+            SDL_Point ghostPoint = { static_cast<int>(_pGhosts[i]->X()), static_cast<int>(_pGhosts[i]->Y()) };
+            Uint16 ghostRow = 0;
+            Uint16 ghostCol = 0;
+            _pMaze->GetTileRowCol(ghostPoint, ghostRow, ghostCol);
+
+            if (ghostRow == row && ghostCol == col)
+            {
+                if (_pGhosts[i]->OnPlayerCollision())
+                {
+                    result = GameState::PlayerDying;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// Tell our object to draw (render their current texture to the renderer)
 void GameHarness::Render()
 {
     SDL_RenderClear(_pSDLRenderer);
-    if (_pMaze != nullptr)
-    {
-        _pMaze->Render(_pSDLRenderer);
-    }
 
-    if (_pPlayer != nullptr)
+    if (_state == GameState::Title)
     {
-        _pPlayer->Render(_pSDLRenderer);
+        if (_pTitleTexture != nullptr)
+        {
+            SDL_RenderCopy(
+                _pSDLRenderer,
+                _pTitleTexture->Ptr(),
+                nullptr,
+                nullptr);
+        }
     }
-
-    if (_pBlinky != nullptr)
+    else
     {
-        _pBlinky->Render(_pSDLRenderer);
-    }
+        if (_pMaze != nullptr)
+        {
+            _pMaze->Render(_pSDLRenderer);
+        }
 
+        if (_pPlayer != nullptr)
+        {
+            _pPlayer->Render(_pSDLRenderer);
+        }
+
+        // This is common, so loop through our array
+        for (size_t i = 0; i < SDL_arraysize(_pGhosts); i++)
+        {
+            if (_pGhosts[i] != nullptr)
+            {
+                _pGhosts[i]->Render(_pSDLRenderer);
+                RenderAITargets(i);
+            }
+        }
+    }
     SDL_RenderPresent(_pSDLRenderer);
+}
+
+// Small helper to factor out AI rendering for this module.  This code should not draw in a normal
+// game but might be very helpful debugging
+void GameHarness::RenderAITargets(size_t ghostIndex)
+{
+    Uint16 row = _pGhosts[ghostIndex]->TargetRow();
+    Uint16 col = _pGhosts[ghostIndex]->TargetCol();
+
+    SDL_Point targetPoint = _pMaze->GetTileCoordinates(row, col);
+    targetPoint.x -= Constants::TileWidth / 2;
+    targetPoint.y -= Constants::TileHeight / 2;
+    SDL_Rect targetRect = { targetPoint.x, targetPoint.y, Constants::TileWidth, Constants::TileHeight };
+    SDL_SetRenderDrawColor(
+        _pSDLRenderer, 
+        _pGhosts[ghostIndex]->TargetColor().r, 
+        _pGhosts[ghostIndex]->TargetColor().g, 
+        _pGhosts[ghostIndex]->TargetColor().b, 
+        255);
+    SDL_RenderFillRect(_pSDLRenderer, &targetRect);
+
+    // Draw some specific UI to illustrate the AI targets and range
+    if (ghostIndex == 2) // Inky
+    {
+        //                                     Target                     Blinky
+        SDL_RenderDrawLine(_pSDLRenderer, targetPoint.x, targetPoint.y, _pGhosts[0]->X(), _pGhosts[0]->Y());
+    }
+    else if (ghostIndex == 3) // Clyde
+    {
+        SDL_Point clydePoint = { static_cast<int>(_pGhosts[ghostIndex]->X()), static_cast<int>(_pGhosts[ghostIndex]->Y()) };
+        SDL_Point clydeCircle[SDL_arraysize(Constants::CosineTable)] = { 0,0 };
+        // Draw 'circle' using pre-calculated cos/sin table
+        for (size_t j = 0; j < SDL_arraysize(Constants::CosineTable); j++)
+        {
+            clydeCircle[j] = { static_cast<int>(clydePoint.x + (Constants::CosineTable[j] * 8 * Constants::TileWidth)),
+                static_cast<int>(clydePoint.y + (Constants::SineTable[j] * 8 * Constants::TileHeight)) };
+        }
+        SDL_RenderDrawPoints(_pSDLRenderer, clydeCircle, SDL_arraysize(clydeCircle));
+    }
+    SDL_SetRenderDrawColor(_pSDLRenderer, Constants::RenderDrawColor.r, Constants::RenderDrawColor.g,
+        Constants::RenderDrawColor.b, Constants::RenderDrawColor.a);
 }
 
 GameHarness::GameState GameHarness::OnLoading()
 {
-    // This should be know, but it should also match what we just queried
-    SDL_assert(_pTilesTexture->Width() == Constants::TileTextureWidth);
-    SDL_assert(_pTilesTexture->Height() == Constants::TileTextureHeight);
-    SDL_Rect textureRect{ 0, 0, Constants::TileTextureWidth, Constants::TileTextureHeight };
-
-    SDL_SetTextureColorMod(_pTilesTexture->Ptr(), 255, 255, 255);
-
-    // Initialize our tiled map object
-    SafeDelete(_pMaze);
-    _pMaze = new Maze(Constants::MapRows, Constants::MapCols, Constants::ScreenWidth, Constants::ScreenHeight);
-
-    _pMaze->Initialize(textureRect, { 0, 0,  Constants::TileWidth,  Constants::TileHeight }, _pTilesTexture->Ptr(),
-        Constants::MapIndicies, Constants::MapRows *  Constants::MapCols);
-
-    // Clip around the maze so nothing draws there (this will help with the wrap around for example)
-    SDL_Rect mapBounds = _pMaze->GetMapBounds();
-    if (SDL_RenderSetClipRect(_pSDLRenderer, &mapBounds) != 0)
+    InitLevel();
+    
+    // Precalculate our sin/cos table.  This could even be hardcoded, but it won't take long
+    for (double i = 0; i < SDL_arraysize(Constants::CosineTable); i++)
     {
-        printf("SDL_RenderSetClipRect() failed, error = %s\n", SDL_GetError());
+        Constants::CosineTable[static_cast<int>(i)] = SDL_cos(i/4);
+        Constants::SineTable[static_cast<int>(i)] = SDL_sin(i/4);
     }
-    else
-    {
-        // Initialize our sprites
-        InitializeSprites();
-    }
-    return GameState::WaitingToStartLevel;
+    return GameState::Title;
 }
 
 // This is the traditional delay before the level starts, normally you hear the little
@@ -248,6 +396,7 @@ GameHarness::GameState GameHarness::OnWaitingToStartLevel()
     if (!timer.IsStarted())
     {
         timer.Start(Constants::LevelLoadDelay);
+        InitLevel();
     }
 
     if (timer.IsDone())
@@ -272,10 +421,18 @@ GameHarness::GameState GameHarness::OnRunning()
     {
         // UPDATE
         _pPlayer->Update(_pMaze, inputDirection); 
-        _pBlinky->Update(_pPlayer, _pMaze);
-        
-        // COLLISIONS
         pelletsEaten += HandlePelletCollision();
+
+        // This is common, so loop through our array
+        for (size_t i = 0; i < SDL_arraysize(_pGhosts); i++)
+        {
+            if (_pGhosts[i] != nullptr)
+            {
+                _pGhosts[i]->Update(_pPlayer, _pMaze);
+            }
+        }
+        //stateResult = HandleGhostCollision();
+
         if (pelletsEaten == Constants::TotalPellets)
         {
             pelletsEaten = 0;
@@ -318,7 +475,36 @@ GameHarness::GameState GameHarness::OnLevelComplete()
     if (timer.IsDone())
     {
         timer.Reset();
-        return GameState::LoadingLevel;
+        return GameState::WaitingToStartLevel;
     }
     return GameState::LevelComplete;
+}
+
+void GameHarness::InitLevel()
+{
+    // This should be know, but it should also match what we just queried
+    SDL_assert(_pTilesTexture->Width() == Constants::TileTextureWidth);
+    SDL_assert(_pTilesTexture->Height() == Constants::TileTextureHeight);
+    SDL_Rect textureRect{ 0, 0, Constants::TileTextureWidth, Constants::TileTextureHeight };
+
+    SDL_SetTextureColorMod(_pTilesTexture->Ptr(), 255, 255, 255);
+
+    // Initialize our tiled map object
+    SafeDelete(_pMaze);
+    _pMaze = new Maze(Constants::MapRows, Constants::MapCols, Constants::ScreenWidth, Constants::ScreenHeight);
+
+    _pMaze->Initialize(textureRect, { 0, 0,  Constants::TileWidth,  Constants::TileHeight }, _pTilesTexture->Ptr(),
+        Constants::MapIndicies, Constants::MapRows *  Constants::MapCols);
+
+    // Clip around the maze so nothing draws there (this will help with the wrap around for example)
+    SDL_Rect mapBounds = _pMaze->GetMapBounds();
+    if (SDL_RenderSetClipRect(_pSDLRenderer, &mapBounds) != 0)
+    {
+        printf("SDL_RenderSetClipRect() failed, error = %s\n", SDL_GetError());
+    }
+    else
+    {
+        // Initialize our sprites
+        InitializeSprites();
+    }
 }

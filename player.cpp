@@ -97,6 +97,71 @@ void Player::Update(Maze* pMaze, Direction inputDirection)
     }
 }
 
+void Player::GetTilePlayerFacingWithOriginalBug(Maze* pMaze, Uint16 cSpaces, Uint16 &row, Uint16 &col)
+{
+    SDL_Point playerPoint = { static_cast<int>(X()), static_cast<int>(Y()) };
+    pMaze->GetTileRowCol(playerPoint, row, col);
+
+    Direction playerFacing = Facing();
+    switch (playerFacing)
+    {
+        // The original game would return a position to the above and left (instead of just above)
+        // when the player was facing up.  We will mimic the bug here as well for the AI
+    case Direction::Up:
+        if (row > cSpaces)
+        {
+            row -= cSpaces;
+        }
+        else
+        {
+            row = 0;
+        }
+
+        if (col > cSpaces)
+        {
+            col -= cSpaces;
+        }
+        else
+        {
+            col = 0;
+        }
+        break;
+    case Direction::Down:
+        if (row < Constants::MapRows - cSpaces - 1)
+        {
+            row += cSpaces;
+        }
+        else
+        {
+            row = Constants::MapRows - 1;
+        }
+        break;
+    case Direction::Left:
+        if (col > cSpaces)
+        {
+            col -= cSpaces;
+        }
+        else
+        {
+            col = 0;
+        }
+        break;
+    case Direction::Right:
+        if (col < Constants::MapCols - cSpaces - 1)
+        {
+            col += cSpaces;
+        }
+        else
+        {
+            col = Constants::MapCols - 1;
+        }
+        break;
+    case Direction::None:
+        SDL_assert(0);
+        break;
+    }
+}
+
 void Player::ProcessPlayerInput(Maze* pMaze, Direction direction)
 {
     if (direction == Direction::None)

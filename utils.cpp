@@ -10,8 +10,7 @@ namespace PacManClone
     // Returns the opposite direction passed in.
     Direction Opposite(Direction dir)
     {
-        SDL_assert(dir != Direction::None);
-        Direction opposites[] = { Direction::Down, Direction::Up, Direction::Right, Direction::Left };
+        Direction opposites[] = { Direction::Down, Direction::Up, Direction::Right, Direction::Left, Direction::None };
         return opposites[static_cast<int>(dir)];
     }
 
@@ -36,7 +35,7 @@ namespace PacManClone
             break;
         }
     }
-
+    
     // Fairly basic SDL code of which there are many examples.  This loads an image from disk to a surface, then
     // if a colorKey is provided, sets the transparency, then we create a texture from the surface that is compatible
     // and finally we're done
@@ -118,6 +117,21 @@ namespace PacManClone
             }
         }
         return fResult;
+    }
+
+    // Modified from StackOverflow answer
+    double Distance(Uint16 row1, Uint16 col1, Uint16 row2, Uint16 col2)
+    {
+        int dr = SDL_abs(row2 - row1);
+        int dc = SDL_abs(col2 - col1);
+
+        int min = SDL_min(dr, dc);
+        int max = SDL_max(dc, dr);
+
+        int diagonalSteps = min;
+        int straightSteps = max - min;
+
+        return SDL_sqrt(2.0) * diagonalSteps + straightSteps;
     }
 
     // Instantiate our helper - load the texture, query basic info and cache it

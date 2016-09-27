@@ -24,7 +24,16 @@ namespace PacManClone
 
         SDL_bool IsTilePellet(Uint16 row, Uint16 col)
         {
-            if ((GetTileIndexAt(row, col) == 16) || (GetTileIndexAt(row, col) == 13))
+            if (GetTileIndexAt(row, col) == 16)
+            {
+                return SDL_TRUE;
+            }
+            return SDL_FALSE;
+        }
+
+        SDL_bool IsTilePowerPellet(Uint16 row, Uint16 col)
+        {
+            if (GetTileIndexAt(row, col) == 13)
             {
                 return SDL_TRUE;
             }

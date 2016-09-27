@@ -41,6 +41,15 @@
     <ClCompile Include="..\blinky.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\pinky.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inky.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\clyde.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\tiledmap.h">
@@ -71,6 +80,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\blinky.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pinky.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\inky.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\clyde.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

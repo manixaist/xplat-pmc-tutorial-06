@@ -15,6 +15,10 @@ namespace PacManClone
         static const SDL_Color SDLColorGrey;
         static const SDL_Color SDLColorMagenta;
         static const SDL_Color RenderDrawColor;
+        static const SDL_Color BlinkyDrawColor;
+        static const SDL_Color PinkyDrawColor;
+        static const SDL_Color InkyDrawColor;
+        static const SDL_Color ClydeDrawColor;
         static const char * const WindowTitle;
         static const Uint16 MapRows = 36;
         static const Uint16 MapCols = 28;
@@ -39,6 +43,14 @@ namespace PacManClone
         static const Uint16 GhostPenRowExit = 14;
         static const Uint16 GhostPenRow = 17;
         static const Uint16 GhostPenCol = 13;
+        static const Uint16 BlinkyScatterRow = 0;
+        static const Uint16 BlinkyScatterCol = 25;
+        static const Uint16 PinkyScatterRow = 0;
+        static const Uint16 PinkyScatterCol = 2;
+        static const Uint16 InkyScatterRow = 35;
+        static const Uint16 InkyScatterCol = 27;
+        static const Uint16 ClydeScatterRow = 35;
+        static const Uint16 ClydeScatterCol = 0;
 
         static const double PlayerMaxSpeed;
         static const double GhostBaseSpeed;
@@ -49,6 +61,9 @@ namespace PacManClone
         static Uint16 MapIndicies[MapRows * MapCols];
         static Uint16 CollisionMap[MapRows * MapCols];
 
+        static double CosineTable[1440];
+        static double SineTable[1440];
+
         static const Uint16 PlayerAnimationSpeed = 5;
         static const Uint16 GhostAnimationSpeed = 8;
 
@@ -58,7 +73,14 @@ namespace PacManClone
         static const Uint16 AnimationIndexLeft = 2;
         static const Uint16 AnimationIndexRight = 3;
         static const Uint16 AnimationIndexDeath = 4;
-        
+        static const Uint16 AnimationIndexFright = 4;  // Skipping death for ghosts since there are multiple
+        static const Uint16 AnimationIndexScared = 5;
+        static const Uint16 AnimationIndexDeathUp = 6;
+        static const Uint16 AnimationIndexDeathDown = 7;
+        static const Uint16 AnimationIndexDeathLeft = 8;
+        static const Uint16 AnimationIndexDeathRight = 9;
+
+
         static const Uint16 PlayerTotalFrameCount = 20;
         static const Uint16 PlayerTotalAnimationCount = 5;
         static const Uint16 PlayerAnimationFrameCount = 4;
@@ -69,17 +91,25 @@ namespace PacManClone
         static int PlayerAnimation_RIGHT[PlayerAnimationFrameCount];
         static int PlayerAnimation_DEATH[PlayerAnimationDeathFrameCount];
 
-        static const Uint16 GhostTotalFrameCount = 8;
-        static const Uint16 GhostTotalAnimationCount = 4;
+        static const Uint16 GhostTotalFrameCount = 16;
+        static const Uint16 GhostTotalAnimationCount = 10;
         static const Uint16 GhostMovingAnimationFrameCount = 2;
+        static const Uint16 GhostScaredAnimationFrameCount = 4;
         static int GhostAnimation_UP[GhostMovingAnimationFrameCount];
         static int GhostAnimation_DOWN[GhostMovingAnimationFrameCount];
         static int GhostAnimation_LEFT[GhostMovingAnimationFrameCount];
         static int GhostAnimation_RIGHT[GhostMovingAnimationFrameCount];
+        static int GhostAnimation_FRIGHT[GhostMovingAnimationFrameCount];
+        static int GhostAnimation_SCARED[GhostScaredAnimationFrameCount];
+        static int GhostAnimation_DEATHUP[GhostMovingAnimationFrameCount];
+        static int GhostAnimation_DEATHDOWN[GhostMovingAnimationFrameCount];
+        static int GhostAnimation_DEATHLEFT[GhostMovingAnimationFrameCount];
+        static int GhostAnimation_DEATHRIGHT[GhostMovingAnimationFrameCount];
 
         // Strings
         static const char * const TilesImage;
         static const char * const SpritesImage;
+        static const char * const TitleImage;
 
     private:
         static const Uint32 c_msPerSecond = 1000;

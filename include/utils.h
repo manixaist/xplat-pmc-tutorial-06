@@ -60,6 +60,9 @@ namespace PacManClone
     // Sets up our SDL environment and Window
     bool InitializeSDL(SDL_Window **ppSDLWindow, SDL_Renderer **ppSDLRenderer);
 
+    // TODO - helper to calculate distance between 2 cells
+    double Distance(Uint16 row1, Uint16 col1, Uint16 row2, Uint16 col2);
+
     // Small wrapper for the SDL_Texture object.  It will cache some basic info (like size)
     // and free it upon destruction
     class TextureWrapper

@@ -8,10 +8,15 @@ namespace PacManClone
     const SDL_Color Constants::SDLColorGrey = { 128, 128, 128, 255 };       // Grey used for "background"
     const SDL_Color Constants::SDLColorMagenta = { 0xFF, 0, 0xFF, 0 };      // Color Key used for transparency
     const SDL_Color Constants::RenderDrawColor = Constants::SDLColorGrey;   // sets background when renderer cleared
+    const SDL_Color Constants::BlinkyDrawColor  = { 255,   0,   0, 255 };
+    const SDL_Color Constants::PinkyDrawColor   = { 255,  97, 177, 255 };
+    const SDL_Color Constants::InkyDrawColor    = { 117, 148, 231, 255 };
+    const SDL_Color Constants::ClydeDrawColor   = { 243, 114,  68, 255 };
+    
     const char * const Constants::WindowTitle = "Pac-Man Clone";
 
     const double Constants::PlayerMaxSpeed = 2.0;
-    const double Constants::GhostBaseSpeed = 1.0;
+    const double Constants::GhostBaseSpeed = 0.75;
 
     // This is the map data for the tiles, each index represents a different tile to render
     Uint16 Constants::MapIndicies[MapRows * MapCols] =
@@ -96,6 +101,9 @@ namespace PacManClone
         1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     };
 
+    double Constants::CosineTable[1440] = {};
+    double Constants::SineTable[1440] = {};
+
     // Vaious animation sequences, these are index to frames on the sprite sheet
     int Constants::PlayerAnimation_UP[PlayerAnimationFrameCount] = { 0, 1, 2, 1 };
     int Constants::PlayerAnimation_DOWN[PlayerAnimationFrameCount] = { 0, 5, 6, 5 };
@@ -108,8 +116,14 @@ namespace PacManClone
     int Constants::GhostAnimation_DOWN[GhostMovingAnimationFrameCount] = { 2, 3 };
     int Constants::GhostAnimation_LEFT[GhostMovingAnimationFrameCount] = { 4, 5 };
     int Constants::GhostAnimation_RIGHT[GhostMovingAnimationFrameCount] = { 6, 7 };
-
+    int Constants::GhostAnimation_FRIGHT[GhostMovingAnimationFrameCount] = { 8, 9 };
+    int Constants::GhostAnimation_SCARED[GhostScaredAnimationFrameCount] = { 8, 11, 9, 10};
+    int Constants::GhostAnimation_DEATHUP[GhostMovingAnimationFrameCount] = { 12, 12 };     // Placeholder for frames
+    int Constants::GhostAnimation_DEATHDOWN[GhostMovingAnimationFrameCount] = { 13, 13 };
+    int Constants::GhostAnimation_DEATHLEFT[GhostMovingAnimationFrameCount] = { 14, 14 };
+    int Constants::GhostAnimation_DEATHRIGHT[GhostMovingAnimationFrameCount] = {15, 15 };
     const char * const Constants::TilesImage = "./grfx/tiles.png";
     const char * const Constants::SpritesImage = "./grfx/spritesheet.png";
+    const char * const Constants::TitleImage = "./grfx/pmctitle.png";
 }
 };

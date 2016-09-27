@@ -17,7 +17,7 @@ namespace PacManClone
     {
     public:
         Ghost(TextureWrapper *pTextureWrapper, Uint16 cxFrame, Uint16 cyFrame, Uint16 cFramesTotal, Uint16 cAnimationsTotal);
-        
+
         virtual ~Ghost()
         {
             SafeDelete<Decision>(_pCurrentDecision);
@@ -31,6 +31,12 @@ namespace PacManClone
 
         // General movement that is common to all ghosts
         void Update(Player* pPlayer, Maze* pMaze);
+        void OnPowerPelletEaten(Maze* pMaze);
+        bool OnPlayerCollision();
+
+        Uint16 TargetRow() { return _targetRow; }
+        Uint16 TargetCol() { return _targetCol; }
+        SDL_Color TargetColor() { return _targetColor; }
 
     protected:
         struct Decision
@@ -56,12 +62,13 @@ namespace PacManClone
         enum class Mode
         {
             Chase = 0,
-            Scatter,
             WarpingOut,
             WarpingIn,
             ExitingPen,
         };
 
+        void InitializeCommon();
+        Direction ShortestDirectionToTarget(Uint16 originRow, Uint16 originCol, Uint16 targetRow, Uint16 targetCol, Maze *pMaze);
         Direction GetNextDirection(Uint16 r, Uint16 c, Maze *pMaze);
         Decision* GetNextDecision(Player *pPlayer, Maze* pMaze);
         bool IsGhostWarpingOut(Maze* pMaze);
@@ -69,9 +76,10 @@ namespace PacManClone
         {
             return (_currentCol > 10 && _currentCol < 17 && _currentRow > 15 && _currentRow < 18);
         }
-
+        
         void Stop() { SetVelocity(0.0, 0.0); }
         bool IsStopped() { return (DX() == 0.0 && DY() == 0.0); }
+        void SetPenTimerMax(Uint32 max) { _penTimerMax = max; }
         void OnExitingPen(Player* pPlayer, Maze* pMaze);
         void OnWarpingOut(Player* pPlayer, Maze* pMaze);
         void OnWarpingIn(Player* pPlayer, Maze* pMaze);
@@ -80,9 +88,17 @@ namespace PacManClone
         void UpdateAnimation(Direction direction);
         
         StateTimer _penTimer;           // Timer used to exit initial pen area
+        StateTimer _scatterTimer;       // Timer used to exit scatter
         Uint16 _currentRow;             // Current cell location
         Uint16 _currentCol;
+        Uint16 _scatterRow;             // Target during scatter mode
+        Uint16 _scatterCol;
+        Uint16 _targetRow;
+        Uint16 _targetCol;
+        SDL_Color _targetColor;
+        Uint32 _penTimerMax;
         Mode _mode;                     // Chase, scatter, etc
+        bool _fScatter;                 // Scattering
         Decision *_pNextDecision;       // Decision for the coming cell
         Decision *_pCurrentDecision;    // Decision for our current cell
     };
