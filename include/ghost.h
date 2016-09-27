@@ -20,6 +20,7 @@ namespace PacManClone
 
         virtual ~Ghost()
         {
+            SafeDelete<Decision>(_pPrevDecision);
             SafeDelete<Decision>(_pCurrentDecision);
             SafeDelete<Decision>(_pNextDecision);
         }
@@ -86,7 +87,8 @@ namespace PacManClone
         void OnChasing(Player* pPlayer, Maze* pMaze);
 
         void UpdateAnimation(Direction direction);
-        
+        void ReverseDirection();
+
         StateTimer _penTimer;           // Timer used to exit initial pen area
         StateTimer _scatterTimer;       // Timer used to exit scatter
         Uint16 _currentRow;             // Current cell location
@@ -101,6 +103,7 @@ namespace PacManClone
         bool _fScatter;                 // Scattering
         Decision *_pNextDecision;       // Decision for the coming cell
         Decision *_pCurrentDecision;    // Decision for our current cell
+        Decision *_pPrevDecision;       // Decision last cell (for reversing easily)
     };
 }
 }

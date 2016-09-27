@@ -16,7 +16,8 @@ Ghost::Ghost(TextureWrapper *pTextureWrapper, Uint16 /*cxFrame*/, Uint16 /*cyFra
     _mode(Mode::Chase),
     _fScatter(false),
     _pNextDecision(nullptr),
-    _pCurrentDecision(nullptr)
+    _pCurrentDecision(nullptr),
+    _pPrevDecision(nullptr)
 {
 }
 
@@ -47,24 +48,19 @@ void Ghost::OnPowerPelletEaten(Maze* pMaze)
     
     if (!_scatterTimer.IsStarted())
     {
-        _scatterTimer.Start(5000);
-
-        SafeDelete<Decision>(_pCurrentDecision);
-        SafeDelete<Decision>(_pNextDecision);
-
-        SDL_Point ghostPoint = { static_cast<int>(X()), static_cast<int>(Y()) };
-        Uint16 row = 0;
-        Uint16 col = 0;
-        pMaze->GetTileRowCol(ghostPoint, row, col);
-        _pCurrentDecision = new Decision(row, col, CurrentDirection());
+        _scatterTimer.Start(10000);
     }
     else
     {
         _scatterTimer.Reset();
-        _scatterTimer.Start(5000);
+        _scatterTimer.Start(10000);
     }
-
-    // Force an update since we just changed it
+    if (_mode == Mode::Chase)
+    {
+        // Don't do this for other cases like warping
+        // Let the velocity stay managed by those handlers
+        ReverseDirection();
+    }
     UpdateAnimation(CurrentDirection());
 }
 
@@ -269,6 +265,7 @@ void Ghost::OnExitingPen(Player* pPlayer, Maze* pMaze)
         ResetPosition(centerPoint.x, centerPoint.y);
         _currentRow = Constants::GhostPenRowExit;
         _currentCol = Constants::GhostPenCol;
+        SafeDelete<Decision>(_pPrevDecision);
         SafeDelete<Decision>(_pNextDecision);
         SafeDelete<Decision>(_pCurrentDecision);
 
@@ -322,6 +319,7 @@ void Ghost::OnWarpingIn(Player* /*pPlayer*/, Maze* pMaze)
         _currentRow = row;
         _currentCol = col;
         // Need a new decision as well
+        SafeDelete<Decision>(_pPrevDecision);
         SafeDelete<Decision>(_pNextDecision);
         SafeDelete<Decision>(_pCurrentDecision);
         _pCurrentDecision = new Decision(row, col, CurrentDirection());
@@ -354,8 +352,6 @@ void Ghost::OnChasing(Player* pPlayer, Maze* pMaze)
         if (_scatterTimer.IsDone())
         {
             _fScatter = false;
-            SetVelocity(DX() * -1, DY() * -1);
-            UpdateAnimation(CurrentDirection());
         }
     }
     // Otherwise the chase logic is exactly the same, it just can't reach the player
@@ -391,7 +387,8 @@ void Ghost::OnChasing(Player* pPlayer, Maze* pMaze)
                 _currentRow = row;
                 _currentCol = col;
                 SDL_assert(_pNextDecision != nullptr);
-                SafeDelete<Decision>(_pCurrentDecision);
+                SafeDelete<Decision>(_pPrevDecision);
+                _pPrevDecision = _pCurrentDecision;
                 _pCurrentDecision = _pNextDecision;
                 _pNextDecision = nullptr;
 
@@ -456,4 +453,19 @@ void Ghost::UpdateAnimation(Direction direction)
     case Direction::None:
         break;
     }
+}
+
+void Ghost::ReverseDirection()
+{
+    // this should be safe in all cases
+    SetVelocity(DX() * -1, DY() * -1);
+    SafeDelete<Decision>(_pNextDecision);
+ 
+    Decision *tmp = _pCurrentDecision;
+    Direction dir = Opposite(_pPrevDecision->GetDirection());
+    _pCurrentDecision = new Decision(_currentRow, _currentCol, dir);
+
+    SafeDelete<Decision>(_pPrevDecision);
+    SafeDelete<Decision>(tmp);
+
 }
